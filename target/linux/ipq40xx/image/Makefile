@@ -1,6 +1,8 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
+DEVICE_VARS += CI_PRECMDS CI_POSTCMDS CI_INITCMDS RAS_BOARD RAS_VERSION
+
 define Device/Default
 	PROFILES := Default
 	KERNEL_DEPENDS = $$(wildcard $(DTS_DIR)/$$(DEVICE_DTS).dts)
@@ -204,5 +206,31 @@ define Device/qcom_ap-dk04.1-c1
 	DEVICE_TITLE := QCA AP-DK04.1-C1
 endef
 TARGET_DEVICES += qcom_ap-dk04.1-c1
+
+define Build/make-ras
+	sh make-ras.sh \
+		--board $(RAS_BOARD) \
+		--version $(RAS_VERSION) \
+		--kernel $(call param_get_default,kernel,$(1),$(IMAGE_KERNEL)) \
+		--rootfs $@ \
+		$@.new
+	@mv $@.new $@
+endef
+
+define Device/zyxel_nbg6617
+	$(call Device/FitImageLzma)
+	DEVICE_DTS := qcom-ipq4018-nbg6617
+	DEVICE_TITLE := ZyXEL NBG6617
+	IMAGE_SIZE := 21053440
+	RAS_BOARD := NBG6617
+	RAS_VERSION := "$(VERSION_DIST) $(REVISION)"
+	IMAGE/sysupgrade.bin := append-kernel | append-rootfs | pad-rootfs | append-metadata
+	IMAGES := sysupgrade.bin ras.bin
+	IMAGE/ras.bin := append-rootfs | pad-rootfs | make-ras
+	IMAGE/sysupgrade.bin/squashfs := append-rootfs | pad-rootfs | sysupgrade-tar rootfs=$$$$@ | append-metadata
+	DEVICE_PACKAGES := ipq-wifi-zyxel_nbg6617 uboot-envtools
+endef
+
+TARGET_DEVICES += zyxel_nbg6617
 
 $(eval $(call BuildImage))
